@@ -1,0 +1,825 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Over-Capacity — O caos da linha de produção</title>
+<style>
+:root{--bg:#071522;--navy:#09243a;--panel:#0d304b;--line:#20a4e8;--white:#f7fbff;--muted:#b8d1e2;--red:#ef3b3b;--orange:#f39a24;--green:#20bd69;--blue:#268bea;--yellow:#ffd34d}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 50% 0,#164c68 0,#071522 58%);color:var(--white);font:600 15px system-ui,Segoe UI,Arial,sans-serif;min-height:100vh}
+button{font:800 16px inherit;color:white;background:linear-gradient(#0e73b6,#07518a);border:2px solid #2bb8ff;border-radius:12px;padding:12px 18px;cursor:pointer;box-shadow:0 4px 0 #043b61}button:hover{filter:brightness(1.15);transform:translateY(-1px)}button.primary{background:linear-gradient(#ffd83f,#f29a00);color:#102333;border-color:#fff05b}button.green{background:linear-gradient(#24d879,#0a9850);border-color:#70ffb1}
+.screen{display:none;min-height:100vh;padding:22px}.screen.active{display:block}.shell{width:min(1320px,96vw);margin:auto}.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}.brand{font-size:27px;font-weight:1000;letter-spacing:-1px;text-shadow:3px 3px 0 #06233a}.brand span{color:#ffd22e}.panel{background:linear-gradient(145deg,#103b59ee,#09253cee);border:2px solid #238fc9;border-radius:18px;box-shadow:0 8px 0 #041a2a,0 12px 35px #0006;padding:20px}.title{font-size:28px;margin:0 0 12px}.subtitle{color:var(--muted);margin:0 0 20px}
+.menu{min-height:calc(100vh - 44px);display:grid;grid-template-columns:1.2fr .8fr;gap:22px;align-items:center}.hero{position:relative;overflow:hidden;padding:36px;background:linear-gradient(145deg,#124d6b,#071d2f)}.hero:before{content:"🍔";position:absolute;right:-10px;top:-45px;font-size:180px;opacity:.16;transform:rotate(-15deg)}.logo{font-size:clamp(52px,8vw,96px);line-height:.78;font-weight:1000;font-style:italic;letter-spacing:-5px;text-shadow:5px 5px 0 #08243a,8px 8px 0 #0005}.logo b{color:#ffd21f}.tag{font-size:20px;margin-top:18px;color:#fff}.team{display:flex;gap:10px;font-size:45px;margin-top:30px}.menuBtns{display:grid;gap:13px}.menuBtns button{font-size:20px;padding:16px}.small{font-size:12px;color:var(--muted)}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.stationCard{padding:14px;border-radius:14px;background:#f7fbff;color:#082338;min-height:180px}.stationCard h3{margin:0 0 8px}.stationCard.red{border-top:7px solid var(--red)}.stationCard.orange{border-top:7px solid var(--orange)}.stationCard.green{border-top:7px solid var(--green)}.stationCard.blue{border-top:7px solid var(--blue)}
+.tutorialGrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.metric{display:flex;justify-content:space-between;padding:12px;margin:8px 0;background:#071c2c;border-radius:10px}.danger{color:#ff6d6d}.good{color:#55e59b}.navrow{display:flex;justify-content:space-between;margin-top:16px}
+.controlsGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.control{padding:14px;border-radius:14px;background:#f7fbff;color:#082338}.keys{display:flex;gap:5px;flex-wrap:wrap;margin:9px 0}.kbd{background:#12293a;color:white;border-radius:6px;padding:5px 8px;min-width:28px;text-align:center}.context{background:#fff4c9;border:2px solid #ffd43c;color:#352b05;padding:10px;border-radius:10px}
+#game{padding:12px}.hud{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:10px}.hudBox{background:#092942eF;border:2px solid #228fc8;border-radius:12px;padding:9px;text-align:center}.hudBox b{display:block;font-size:21px}.gameLayout{display:grid;grid-template-columns:1fr 270px;gap:10px}.map{position:relative;height:650px;overflow:hidden;border:8px solid #3e3024;border-radius:18px;background:repeating-linear-gradient(90deg,#d4a36c 0 52px,#c7955f 52px 54px),repeating-linear-gradient(0deg,transparent 0 52px,#b88653 52px 54px);box-shadow:0 10px 0 #041a2a}.station{position:absolute;top:24px;width:22%;height:225px;border:4px solid #39291d;border-radius:15px;background:#efd09d;color:#251b14;padding:10px;box-shadow:0 5px 0 #806041}.station h3{margin:0 0 5px;font-size:16px}.station .stock{background:#fff0c9;border-radius:9px;padding:8px;line-height:1.5;margin-top:8px}.s1{left:1.5%}.s2{left:26%}.s3{left:50.5%}.s4{left:75%}.belt{position:absolute;top:108px;width:4%;height:54px;background:#414952;border:4px solid #252b31;border-radius:10px}.belt:after{content:"• • • •";position:absolute;left:4px;top:8px;font-size:22px;color:#aeb8c1}.b12{left:23.4%}.b23{left:47.4%}.b34{left:72%}.player{position:absolute;top:280px;width:52px;height:52px;border-radius:50%;border:4px solid white;display:grid;place-items:center;font-size:25px;z-index:5;transition:left .04s,top .04s}.p1{background:var(--red)}.p2{background:var(--orange)}.p3{background:var(--green)}.p4{background:var(--blue)}.prompt{position:absolute;z-index:20;background:#101b;color:white;border:2px solid #ffd34d;border-radius:10px;padding:8px 10px;display:none;pointer-events:none}.controlPad{position:absolute;left:2%;right:2%;bottom:68px;background:#061827ee;border:2px solid #ffd34d;border-radius:12px;padding:7px 10px;z-index:30}.padTitle{text-align:center;font-weight:900;font-size:12px;color:#ffd34d;margin-bottom:4px}.pads{display:flex;justify-content:center;gap:10px;flex-wrap:wrap}.miniPad{display:flex;align-items:center;gap:3px;font-size:11px;color:white}.miniPad>b{margin-right:2px}.miniPad button{min-width:28px;height:26px;border:1px solid #8fb3c8;border-radius:6px;background:#17364c;color:white;font-weight:800;cursor:pointer;touch-action:none}.miniPad .act{padding:0 7px;border-color:#ffd34d}.wip{position:absolute;left:2%;right:2%;bottom:15px;background:#082238ee;border:2px solid #228fc8;border-radius:12px;padding:10px;display:flex;gap:20px;justify-content:center;flex-wrap:wrap}.side{display:flex;flex-direction:column;gap:10px}.side .panel{padding:14px}.phase{font-size:19px;text-align:center;padding:10px;border-radius:10px}.phase.one{background:#a72b2b}.phase.two{background:#087844}.log{max-height:210px;overflow:auto;font-size:12px;color:#cbe0ee}.pauseOverlay,.resultOverlay{position:fixed;inset:0;background:#041321cc;display:none;align-items:center;justify-content:center;z-index:100}.modal{width:min(650px,92vw)}.resultGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.resultCol{padding:16px;border-radius:14px;background:#fff;color:#082338}.resultCol.red{border-top:7px solid var(--red)}.resultCol.green{border-top:7px solid var(--green)}
+.settingRow{display:flex;justify-content:space-between;align-items:center;padding:13px;background:#071d2e;border-radius:10px;margin:8px 0}.toggle{background:#18b966;border:0;box-shadow:none;padding:7px 13px}.credits{text-align:center}.iconGrid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;text-align:center}.iconGrid div{padding:10px;background:#071d2e;border-radius:10px}.footer{text-align:center;color:#b8d1e2;margin-top:14px}
+@media(max-width:1180px){.menu{grid-template-columns:1fr}.grid4,.controlsGrid,.tutorialGrid{grid-template-columns:1fr 1fr}.gameLayout{grid-template-columns:1fr}.side{display:grid;grid-template-columns:1fr 1fr}.map{height:570px}.station{height:205px}.iconGrid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:620px){.screen{padding:10px}.grid4,.controlsGrid,.tutorialGrid,.resultGrid,.side{grid-template-columns:1fr}.hud{grid-template-columns:1fr 1fr}.map{height:520px}.station{font-size:11px}.station .stock{font-size:10px}.logo{font-size:54px}.team{font-size:34px}}
+
+/* ===== REBUILD PLAYABLE MATCH ===== */
+#playMatch{position:fixed;inset:0;z-index:9999;display:none;background:#07131f;color:#eefaff;font-family:Arial,sans-serif;overflow:auto}
+#playMatch.active{display:block}
+.pmTop{height:64px;display:flex;align-items:center;justify-content:center;gap:18px;background:#0b1f2d;border-bottom:1px solid #ffffff22;position:sticky;top:0;z-index:5}
+.pmTop .pmLogo{font-weight:1000;letter-spacing:.06em;font-size:18px}
+.pmStat{background:#102d40;border:1px solid #ffffff18;border-radius:10px;padding:7px 12px;font-weight:800}
+.pmTop button{background:#173b51;color:#fff;border:1px solid #ffffff22;border-radius:9px;padding:8px 12px;cursor:pointer}
+.pmMain{display:flex;gap:12px;max-width:1250px;margin:12px auto;padding:0 12px;box-sizing:border-box}
+.pmBoard{position:relative;flex:1;min-width:960px;height:650px;border:2px solid #31546a;border-radius:18px;background:radial-gradient(circle at 50% 25%,#17384a,#081821 70%);overflow:hidden}
+.pmCarry{margin-top:8px;padding:6px 8px;border-radius:8px;background:#091923;border:1px solid #ffffff18;font-size:11px;line-height:1.35}.pmCookTrack{height:8px;background:#07131b;border-radius:99px;overflow:hidden;margin-top:7px;border:1px solid #ffffff18}.pmCookBar{height:100%;width:0;background:#ff8a00;transition:width .08s linear}.pmPlayer.carrying{box-shadow:0 0 0 4px #ffd34d,0 5px 18px #0009}.pmToken{position:absolute;z-index:4;font-size:25px;transition:left .18s linear,top .18s linear;filter:drop-shadow(0 3px 3px #0008)}
+.pmStation{position:absolute;width:190px;height:145px;border-radius:15px;border:2px solid #ffffff1c;background:#102c3d;box-sizing:border-box;padding:10px;text-align:center;box-shadow:0 8px 22px #0007}
+.pmStation b{font-size:12px}.pmIcon{font-size:42px;margin:9px}.pmStation small{opacity:.7}
+.pmStation.j1{left:25px;top:45px}.pmStation.j2{left:220px;top:45px}.pmStation.j3{left:415px;top:45px}.pmStation.j4{left:610px;top:45px}
+.pmConveyor{position:absolute;height:50px;border-radius:10px;border:1px solid #ffffff20;background:repeating-linear-gradient(90deg,#315566 0 25px,#203c4b 25px 50px);top:230px}
+.pmC1{left:40px;width:350px}.pmC2{left:235px;width:350px}.pmC3{left:430px;width:350px}
+.pmObj{position:absolute;font-size:30px;z-index:3}.oBread{left:105px;top:240px}.oRaw{left:280px;top:240px}.oCook{left:475px;top:240px}.oBurger{left:670px;top:240px}
+.pmPlayer{position:absolute;width:52px;height:52px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:1000;background:#197aa7;border:3px solid #d8f4ff;box-shadow:0 5px 15px #0009;z-index:10;user-select:none}
+.pmPlayer.p1{left:95px;top:410px}.pmPlayer.p2{left:290px;top:410px}.pmPlayer.p3{left:485px;top:410px}.pmPlayer.p4{left:680px;top:410px}
+.pmPrompt{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);background:#000b;border:1px solid #ffffff20;border-radius:12px;padding:10px 18px;font-weight:900;z-index:12;white-space:nowrap}
+.pmPanel{width:220px;background:#0d2432;border:1px solid #ffffff20;border-radius:15px;padding:14px;line-height:1.75;box-sizing:border-box}
+.pmPanel h3{margin:0 0 7px}.pmPanel hr{border:0;border-top:1px solid #ffffff15}.pmHelp{font-size:11px;line-height:1.4;opacity:.75}
+.pmControls{margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:6px}.pmControls button{padding:8px;border:1px solid #ffffff18;border-radius:8px;background:#16384b;color:#fff;font-weight:800}
+.pmOverlay{position:fixed;inset:0;background:#000a;z-index:20;display:none;align-items:center;justify-content:center}
+.pmOverlay.show{display:flex}.pmCard{background:#102a3a;border:1px solid #ffffff22;border-radius:18px;padding:28px;text-align:center;min-width:300px}.pmCard button{padding:10px 16px;margin:5px;border:0;border-radius:9px;font-weight:900}
+@media(max-width:1000px){.pmMain{flex-direction:column}.pmBoard{min-width:0;width:100%;height:620px}.pmPanel{width:auto}.pmStation.j1{left:2%}.pmStation.j2{left:27%}.pmStation.j3{left:52%}.pmStation.j4{left:77%}}
+
+
+<style>
+.pm-pad{display:grid;grid-template-columns:repeat(3,42px);gap:4px;align-items:center;justify-items:center}
+.pm-pad button{width:42px;height:36px}
+</style>
+</style>
+
+<style id="visual-reference-overhaul">
+:root{
+  --oc-bg:#071a2d; --oc-panel:#0b2742; --oc-line:#1684c4;
+  --oc-text:#f5fbff; --oc-muted:#a9d8ef;
+  --oc-j1:#ef3340; --oc-j2:#ff8a00; --oc-j3:#00c879; --oc-j4:#1687ff;
+}
+body{
+  background:radial-gradient(circle at 50% 10%,#123d5c 0,#071a2d 58%,#04111f 100%);
+}
+#game,#playMatch{background:linear-gradient(180deg,rgba(7,26,45,.96),rgba(4,17,31,.98));}
+#game .hud,#playMatch .hud{
+  background:rgba(6,28,49,.94)!important;
+  border:2px solid var(--oc-line)!important;
+  border-radius:18px!important;
+  box-shadow:0 8px 24px rgba(0,0,0,.28);
+}
+#game .station,#playMatch .station{
+  border-radius:16px!important;
+  box-shadow:0 8px 18px rgba(0,0,0,.24);
+}
+#game button,#playMatch button{
+  border-radius:12px!important;
+  font-weight:800!important;
+}
+#pmControls,.pm-controls{
+  background:rgba(4,18,32,.92)!important;
+  border:2px solid #126ca5!important;
+  border-radius:18px!important;
+  padding:12px!important;
+  box-shadow:0 10px 30px rgba(0,0,0,.35);
+}
+.pm-pad button{
+  border:2px solid #197fbd!important;
+  background:#0c3454!important;
+  color:#fff!important;
+  font-weight:900!important;
+}
+.pm-pad button:hover{filter:brightness(1.18);}
+#pmControls>button:last-child,#pmControls>button:nth-of-type(1),
+#pmControls>button:nth-of-type(2),#pmControls>button:nth-of-type(3),#pmControls>button:nth-of-type(4){
+  min-height:38px;
+}
+.oc-reference-speed{
+  margin:10px auto 0;
+  width:max-content;
+  max-width:90%;
+  padding:8px 16px;
+  border:2px solid #146da8;
+  border-radius:999px;
+  background:#08233c;
+  color:#f5fbff;
+  font-weight:900;
+  letter-spacing:.2px;
+}
+</style>
+
+<style id="production-flow-v1">
+.flow-feedback{
+  position:fixed;left:50%;bottom:18px;transform:translateX(-50%);
+  z-index:9999;min-width:280px;max-width:80vw;
+  padding:10px 18px;border-radius:14px;
+  background:rgba(5,24,41,.94);border:2px solid #1684c4;
+  color:#fff;text-align:center;font-weight:800;
+  box-shadow:0 8px 24px rgba(0,0,0,.3);
+  pointer-events:none;opacity:0;transition:opacity .18s ease;
+}
+.flow-feedback.show{opacity:1}
+.station-flow-active{animation:flowPulse .35s ease}
+@keyframes flowPulse{50%{transform:scale(1.025);filter:brightness(1.15)}}
+.conveyor-item{animation:conveyorPulse .6s ease-in-out infinite alternate}
+@keyframes conveyorPulse{from{opacity:.75}to{opacity:1}}
+</style>
+
+<style id="production-system-v2">
+#ocProductionPanel{
+  position:fixed;top:76px;right:18px;z-index:9000;
+  width:270px;padding:14px;border-radius:16px;
+  background:rgba(5,24,41,.94);border:2px solid #1684c4;
+  color:#fff;box-shadow:0 10px 28px rgba(0,0,0,.32);
+  font-family:inherit;pointer-events:none;
+}
+#ocProductionPanel h3{margin:0 0 8px;font-size:15px}
+.oc-flow-row{display:flex;align-items:center;gap:6px;font-size:12px;margin:7px 0}
+.oc-node{padding:5px 7px;border-radius:8px;background:#0c3454;border:1px solid #197fbd}
+.oc-arrow{opacity:.8}
+.oc-node.ready{box-shadow:0 0 0 2px rgba(0,200,121,.55);background:#0d513f}
+.oc-node.busy{box-shadow:0 0 0 2px rgba(255,138,0,.65);background:#5b3909}
+.oc-node.wait{box-shadow:0 0 0 2px rgba(239,51,64,.55);background:#5a1720}
+.oc-item{
+  position:absolute;width:22px;height:22px;border-radius:50%;
+  z-index:5000;display:none;align-items:center;justify-content:center;
+  font-size:13px;font-weight:900;color:#fff;pointer-events:none;
+  box-shadow:0 3px 9px rgba(0,0,0,.3);
+}
+.oc-item.visible{display:flex}
+.oc-item.bread{background:#d9a441}.oc-item.raw{background:#a64a3b}
+.oc-item.cooked{background:#7a4b28}.oc-item.burger{background:#00a96b}
+.oc-item.plate{background:#e9eef2;color:#173047}
+</style>
+
+<style id="expanded-play-area">
+#game,#playMatch{
+  min-height:680px;
+}
+#game .game-inner,#playMatch .game-inner{
+  width:min(94vw,1280px);
+  margin-left:auto;
+  margin-right:auto;
+}
+@media (max-width:900px){
+  #game,#playMatch{min-height:620px;}
+}
+</style>
+<style id="real-game-map-v3">
+#playMatch{background:#06131f;overflow:auto}
+#playMatch .pmTop{height:72px;background:linear-gradient(180deg,#092943,#071a2b);border-bottom:2px solid #157fbd;gap:10px;padding:8px 14px;justify-content:flex-start}
+#playMatch .pmLogo{font-size:21px;margin-right:auto;text-shadow:2px 2px #04111b}.pmLogo span{font-size:27px}.pmLogo b{color:#ffd32d}
+#playMatch .pmStat{background:#0b2942;border:2px solid #176f9f;border-radius:12px;padding:7px 12px;white-space:nowrap}.pmStat small{display:block;font-size:9px;color:#9fc7dc;text-transform:uppercase}.timerStat{border-color:#ffb21c!important}.phaseStat{border-color:#24b979!important}
+#playMatch .pmMain{max-width:1450px;margin:12px auto;padding:0 12px;gap:14px}
+#playMatch .pmBoard{flex:1;min-width:900px;height:700px;border:4px solid #243b49;border-radius:20px;background:linear-gradient(#b77e4f 0 12%,#d9a56d 12% 78%,#b87f51 78%);box-shadow:0 12px 30px #0009;isolation:isolate}
+.pmBoard:before{content:"";position:absolute;inset:80px 0 150px;background:repeating-linear-gradient(0deg,rgba(255,255,255,.08) 0 2px,transparent 2px 54px),repeating-linear-gradient(90deg,rgba(70,45,27,.13) 0 2px,transparent 2px 54px);z-index:-1}
+.pmWall{position:absolute;background:linear-gradient(#754d32,#543722);border-bottom:6px solid #382417}.topWall{left:0;right:0;top:0;height:82px}.leftWall{left:0;top:0;bottom:0;width:18px}.rightWall{right:0;top:0;bottom:0;width:18px}
+.pmFloorSign{position:absolute;top:88px;left:50%;transform:translateX(-50%);font-size:12px;font-weight:1000;letter-spacing:3px;color:#71482e;background:#efc185cc;border:2px solid #a76d3e;padding:5px 14px;border-radius:999px}
+.pmPlant{position:absolute;font-size:34px;z-index:1;filter:drop-shadow(0 4px 2px #0005)}.plant1{left:24px;top:92px}.plant2{right:24px;top:92px}.plant3{right:30px;bottom:158px}
+#playMatch .pmStation{top:112px;width:210px;height:150px;border:4px solid #3b291e;border-radius:16px;background:#eee0c7;color:#2b211a;padding:0;text-align:center;box-shadow:0 7px 0 #806044,0 12px 18px #0005;overflow:hidden}
+#playMatch .pmStation.j1{left:35px}.pmStation.j2{left:265px}.pmStation.j3{left:495px}.pmStation.j4{left:725px}
+.stationHead{height:34px;display:flex;align-items:center;gap:6px;padding:0 8px;color:white;font-size:11px;font-weight:1000}.stationHead em{margin-left:auto;font-style:normal;background:#ffffff33;border-radius:999px;padding:3px 6px}.stationNumber{width:22px;height:22px;display:grid;place-items:center;border-radius:50%;background:#fff3;font-size:12px}.redHead{background:#e93242}.orangeHead{background:#f28b0a}.greenHead{background:#12b96b}.blueHead{background:#1688eb}
+.machine{position:absolute;left:14px;right:14px;top:43px;height:58px;border-radius:9px;background:#26313a;border:3px solid #172027;box-shadow:inset 0 4px 8px #0008;display:flex;align-items:center;justify-content:center;gap:12px}.supplyMachine{background:#a86f3e}.crate{background:#f2c477;border:2px solid #70451f;border-radius:5px;padding:5px;font-size:25px}.grillMachine{background:linear-gradient(#303b42,#141b20)}.grillTop{font-size:25px}.grillSlots{display:flex;gap:5px}.grillSlots i{display:block;width:25px;height:6px;background:#111;border-radius:9px;box-shadow:0 2px 0 #777}.assemblyMachine{background:#d2b27c}.assemblyMachine span,.assemblyMachine strong{font-size:22px}.assemblyMachine b{font-size:18px}.deliveryMachine{background:#c9d5db;color:#17232b;font-size:18px}.deliveryMachine div:nth-child(2){font-size:15px}.stationCaption{position:absolute;top:104px;left:8px;right:8px;font-size:9px;font-weight:1000}.pmStation small{position:absolute;bottom:5px;left:0;right:0;font-size:9px;color:#6c5b4d}
+#playMatch .pmConveyor{top:300px;height:58px;border:5px solid #26333a;border-radius:11px;background:repeating-linear-gradient(90deg,#56636b 0 24px,#39454d 24px 48px);box-shadow:inset 0 5px 8px #0008,0 5px 0 #725033}.pmC1{left:60px;width:350px}.pmC2{left:290px;width:350px}.pmC3{left:520px;width:350px}.beltArrows{color:#dce5e8;font-size:20px;letter-spacing:8px;line-height:47px;text-shadow:2px 2px #222;white-space:nowrap;overflow:hidden}.pmBeltLabel{position:absolute;top:278px;background:#172934dd;color:#d9edf8;border-radius:999px;padding:3px 9px;font-size:8px;font-weight:1000;letter-spacing:1px}.label1{left:190px}.label2{left:425px}.label3{left:660px}
+.pmCounter{position:absolute;bottom:180px;background:#765039;border:3px solid #4d321f;border-radius:10px;padding:8px 12px;color:#ffe0ae;font-size:10px;font-weight:900;box-shadow:0 5px 0 #422a1a}.counter1{left:45px}.counter2{left:400px}.counter3{right:45px}.pmCounter span{font-size:18px;margin-right:5px}
+.pmDining{position:absolute;left:25px;right:25px;bottom:20px;height:125px;border-radius:18px;background:repeating-linear-gradient(90deg,#a76b42 0 100px,#c0804e 100px 105px);border:4px solid #73472d;display:flex;align-items:center;justify-content:space-around;box-shadow:inset 0 8px 15px #0003}.customer{width:130px;height:72px;background:#e6bd7b;border:4px solid #7d4d2d;border-radius:12px;text-align:center;padding-top:8px;font-size:30px;position:relative}.customer span{font-size:17px;position:absolute;right:12px;top:8px}.pmServingLine{position:absolute;left:40px;right:40px;bottom:160px;border-top:3px dashed #ffe3a1;opacity:.65}
+#playMatch .pmObj{font-size:31px;filter:drop-shadow(0 3px 2px #0008)}.oBread{left:145px;top:315px}.oRaw{left:315px;top:315px}.oCook{left:545px;top:315px}.oBurger{left:775px;top:315px}
+#playMatch .pmPlayer{width:58px;height:58px;border-radius:16px;font-size:14px;border:4px solid #fff;box-shadow:0 6px 14px #0008;top:435px;z-index:20}.pmPlayer:before{content:"";position:absolute;width:23px;height:12px;border-radius:50%;background:#fff8;top:-9px}.pmPlayer span{position:relative;z-index:2}.pmConveyor .beltArrows{animation:beltMove .8s linear infinite}@keyframes beltMove{to{transform:translateX(18px)}}.pmPlayer.p1{background:#e93242}.pmPlayer.p2{background:#f28b0a}.pmPlayer.p3{background:#12b96b}.pmPlayer.p4{background:#1688eb}.pmPlayer.carrying{box-shadow:0 0 0 4px #ffd34d,0 8px 20px #000a}
+#playMatch .pmPrompt{bottom:14px;background:#071b2bdd;border:2px solid #ffd34d;box-shadow:0 4px 15px #0008;padding:9px 16px;font-size:12px}
+#playMatch .pmPanel{width:275px;background:linear-gradient(160deg,#0d2b43,#081b2b);border:2px solid #167eb6;border-radius:18px;padding:14px;line-height:1.5;box-shadow:0 10px 25px #0005}.panelTitle{font-size:15px;font-weight:1000;border-bottom:1px solid #ffffff22;padding-bottom:7px;margin-bottom:9px}.lineMeter{height:7px;background:#06131e;border-radius:99px;overflow:hidden;margin-bottom:10px}.lineMeter span{display:block;height:100%;background:#21c57b;transition:width .2s}.miniStats{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}.miniStats div{background:#0a2133;border:1px solid #ffffff16;border-radius:8px;padding:5px;text-align:center;font-size:15px}.miniStats b{display:block;font-size:15px}.miniStats small{font-size:8px;color:#9dc4d8}.panelCard{display:flex;justify-content:space-between;align-items:center;background:#071925;border:1px solid #ffffff15;border-radius:9px;padding:7px 9px;margin-top:7px;font-size:11px}.flowState{margin-top:8px;background:#0a2133;border-radius:9px;padding:8px;font-size:11px;text-align:center}.pmLog{margin-top:8px;height:90px;overflow:auto;background:#06151f;border-radius:9px;padding:6px}.controlsTitle{margin-top:12px}.speedBadge{margin:8px 0;padding:7px;border-radius:8px;background:#09253b;border:1px solid #197eb7;text-align:center;font-size:10px;font-weight:900}.pmControls{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-top:7px}.pmControls button{min-height:34px;padding:5px 3px;background:#123d59;border:1px solid #218fc9;border-radius:8px;color:white;font-size:9px;font-weight:900}
+@media(max-width:1200px){#playMatch .pmMain{flex-direction:column}.pmPanel{width:auto!important}.pmBoard{min-width:0!important;width:100%}}
+@media(max-width:900px){#playMatch .pmBoard{height:620px;transform-origin:top left}.pmStation{transform:scale(.82);transform-origin:top left}.pmC1,.pmC2,.pmC3{transform:scale(.85);transform-origin:left}.pmDining{height:105px}.customer{width:95px;font-size:23px}.pmCounter{bottom:145px}.pmServingLine{bottom:130px}}
+</style>
+</head>
+<body>
+
+<section id="menu" class="screen active">
+<div class="shell menu">
+  <div class="panel hero">
+    <div class="logo">OVER-<b>CAPACITY</b></div>
+    <div class="tag">O CAOS DA LINHA DE PRODUÇÃO</div>
+    <div class="team">🧑‍🍳 👨‍🍳 🧑‍🔧 🚚</div>
+    <p>Trabalhem juntos, otimizem o fluxo de produção e entreguem os hambúrgueres antes que o tempo acabe!</p>
+  </div>
+  <div class="panel menuBtns">
+    <button class="primary" onclick="startTutorial()">▶ JOGAR</button>
+    <button onclick="show('settings')">⚙ CONFIGURAÇÕES</button>
+    <button onclick="show('controls')">🎮 CONTROLES</button>
+    <button onclick="show('credits')">👥 CRÉDITOS</button>
+    <button onclick="alert('Até a próxima!')">↪ SAIR</button>
+  </div>
+</div>
+</section>
+
+<section id="tutorial" class="screen">
+<div class="shell">
+<div class="topbar"><div class="brand">OVER-<span>CAPACITY</span></div><div>TUTORIAL <b id="tPage">1 / 4</b></div></div>
+<div class="panel" id="tContent"></div>
+</div>
+</section>
+
+<section id="controls" class="screen">
+<div class="shell panel">
+<h1 class="title">🎮 CONTROLES</h1><p class="subtitle">Cada jogador possui uma área de teclas própria para evitar conflitos.</p>
+<div class="controlsGrid">
+<div class="control"><h3>🟥 J1 — Fornecedor</h3><div class="keys"><span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span><span class="kbd">E</span></div><b>WASD = Mover · E = Interagir</b></div>
+<div class="control"><h3>🟧 J2 — Grelhador</h3><div class="keys"><span class="kbd">T</span><span class="kbd">F</span><span class="kbd">G</span><span class="kbd">H</span><span class="kbd">R</span></div><b>TFGH = Mover · R = Interagir</b></div>
+<div class="control"><h3>🟩 J3 — Montador</h3><div class="keys"><span class="kbd">I</span><span class="kbd">J</span><span class="kbd">K</span><span class="kbd">L</span><span class="kbd">U</span></div><b>IJKL = Mover · U = Interagir</b></div>
+<div class="control"><h3>🟦 J4 — Logística</h3><div class="keys"><span class="kbd">↑</span><span class="kbd">←</span><span class="kbd">↓</span><span class="kbd">→</span><span class="kbd">Enter</span></div><b>Flechas = Mover · Enter = Interagir</b></div>
+</div>
+<div class="context">🧪 <b>Teste:</b> mova cada personagem até sua estação; quando aparecer o aviso amarelo, pressione a tecla de ação. &nbsp; 💡 <b>Ação contextual:</b> aproxime-se de uma estação e o jogo mostrará, por exemplo, <b>[E] Pegar</b>, <b>[R] Colocar carne</b>, <b>[U] Montar</b> ou <b>[Enter] Entregar</b>.</div>
+<div class="navrow"><button onclick="show('menu')">← Menu</button><button class="primary" onclick="startTutorial()">▶ Jogar</button></div>
+</div>
+</section>
+
+<section id="settings" class="screen">
+<div class="shell panel">
+<h1 class="title">⚙ CONFIGURAÇÕES</h1>
+<div class="settingRow"><span>Modo de jogo</span><b>2 fases — Tutorial</b></div>
+<div class="settingRow"><span>Tempo de partida</span><b>200 segundos</b></div>
+<div class="settingRow"><span>Meta</span><b>15 hambúrgueres</b></div>
+<div class="settingRow"><span>Indicadores de WIP</span><button class="toggle">ATIVO</button></div>
+<div class="settingRow"><span>Ações contextuais</span><button class="toggle">ATIVO</button></div>
+<div class="navrow"><button onclick="show('menu');S.running=false;paused=false">← Voltar ao menu</button><button onclick="show('controls')">🎮 Controles</button></div>
+</div>
+</section>
+
+<section id="credits" class="screen">
+<div class="shell panel credits">
+<h1 class="title">👥 CRÉDITOS</h1><div style="font-size:70px">🍔 🧑‍🍳 👨‍🍳 🧑‍🔧 🚚</div>
+<h2>OVER-CAPACITY</h2><p>O caos da linha de produção</p>
+<p>Um jogo cooperativo sobre <b>capacidade, gargalos, WIP e trabalho em equipe</b>.</p>
+<p class="small">Protótipo educacional · Interface inspirada em jogos cooperativos de cozinha.</p>
+<div class="iconGrid"><div>🍞<br>Pão</div><div>🥩<br>Carne crua</div><div>🍖<br>Carne cozida</div><div>🍽️<br>Prato</div><div>🥫<br>Molho</div><div>🍔<br>Hambúrguer</div></div>
+<div class="navrow"><button onclick="show('menu')">← Voltar ao menu</button><button class="primary" onclick="startTutorial()">▶ Jogar</button></div>
+</div>
+</section>
+
+<section id="game" class="screen" tabindex="0">
+<div class="shell">
+<div class="topbar"><div class="brand">OVER-<span>CAPACITY</span></div><button onclick="pauseGame()">Ⅱ PAUSAR</button></div>
+<div class="hud">
+<div class="hudBox">🍔 HAMBÚRGUERES ENTREGUES<b><span id="served">0</span> / 15</b></div>
+<div class="hudBox">⏱ TEMPO<b id="timer">200</b></div>
+<div class="hudBox">⭐ PONTOS<b id="score">0</b></div>
+<div class="hudBox"><span id="phaseLabel">FASE 1</span><b id="phaseName">Desbalanceada</b></div>
+</div>
+<div class="gameLayout">
+<div class="map" id="map">
+<div class="station s1"><h3>🟥 J1 · Fornecedor</h3><div>Abastece a linha</div><div class="stock">Pão: <span id="bread">30</span><br>Carne crua: <span id="raw">30</span><br>Pão na esteira: <span id="bb">0</span><br>Carne na esteira: <span id="mb">0</span></div></div>
+<div class="station s2"><h3>🟧 J2 · Grelhador</h3><div>Gargalo da fase 1</div><div class="stock">Fila: <span id="queue">0</span><br>Na chapa: <span id="grill">0</span><br>Carne cozida: <span id="cooked">0</span><br>Tempo: <span id="grilltime">5</span>s</div></div>
+<div class="station s3"><h3>🟩 J3 · Montador</h3><div>Transforma peças em produto</div><div class="stock">Pão: <span id="bread3">0</span><br>Carne: <span id="meat3">0</span><br>Prontos: <span id="ready">0</span></div></div>
+<div class="station s4"><h3>🟦 J4 · Logística</h3><div>Entrega ao cliente</div><div class="stock">Pedidos: <span id="ready4">0</span><br>Pratos sujos: <span id="dirty">0</span></div></div>
+<div class="belt b12"></div><div class="belt b23"></div><div class="belt b34"></div>
+<div id="p1" class="player p1" style="left:10%">🧑</div><div id="p2" class="player p2" style="left:34.5%">🔥</div><div id="p3" class="player p3" style="left:59%">🧑‍🔧</div><div id="p4" class="player p4" style="left:83.5%">🚚</div>
+<div id="prompt" class="prompt"></div>
+<div class="controlPad" aria-label="Controles rápidos">
+  <div class="padTitle">🎮 CONTROLES RÁPIDOS</div>
+  <div class="pads">
+    <div class="miniPad"><b>J1</b><button data-move="p1:up">W</button><div><button data-move="p1:left">A</button><button data-move="p1:down">S</button><button data-move="p1:right">D</button></div><button class="act" data-act="p1">E · Ação</button></div>
+    <div class="miniPad"><b>J2</b><button data-move="p2:up">T</button><div><button data-move="p2:left">F</button><button data-move="p2:down">G</button><button data-move="p2:right">H</button></div><button class="act" data-act="p2">R · Ação</button></div>
+    <div class="miniPad"><b>J3</b><button data-move="p3:up">I</button><div><button data-move="p3:left">J</button><button data-move="p3:down">K</button><button data-move="p3:right">L</button></div><button class="act" data-act="p3">U · Ação</button></div>
+    <div class="miniPad"><b>J4</b><button data-move="p4:up">↑</button><div><button data-move="p4:left">←</button><button data-move="p4:down">↓</button><button data-move="p4:right">→</button></div><button class="act" data-act="p4">Enter · Ação</button></div>
+  </div>
+</div>
+
+<div class="panel" style="position:absolute;left:2%;top:505px;right:2%;z-index:10;padding:8px;background:#06192be8">
+<b>🎮 TESTE DOS JOGADORES</b>
+<span style="margin-left:12px">J1 <b id="j1status">●</b></span>
+<span style="margin-left:12px">J2 <b id="j2status">●</b></span>
+<span style="margin-left:12px">J3 <b id="j3status">●</b></span>
+<span style="margin-left:12px">J4 <b id="j4status">●</b></span>
+<span class="small" style="margin-left:12px">Use as teclas indicadas e procure o aviso amarelo.</span>
+</div>
+<div class="wip">📦 WIP — TRABALHO EM PROCESSO: <b id="wip">0</b> · 🍞 <span id="wBread">0</span> · 🥩 <span id="wRaw">0</span> · 🍖 <span id="wCooked">0</span> · 🍽️ <span id="wDirty">0</span></div>
+</div>
+<div class="side">
+<div class="panel phase one" id="phaseBox">⚠️ FASE 1 — LINHA DESBALANCEADA<br><span class="small">J2 = 7s</span></div>
+<div class="panel"><b>FLUXO</b><p>J1 → esteira → J2 → esteira → J3 → J4</p><div id="log" class="log"></div></div>
+<div class="panel"><b>COMO VENCER</b><p>Entregue 15 hambúrgueres antes do tempo acabar.</p><p class="small">Observe o WIP: se ele cresce antes do J2, o gargalo está ali.</p></div>
+</div>
+</div>
+</div>
+</section>
+
+<div id="pauseOverlay" class="pauseOverlay"><div class="modal panel"><h1 class="title">Ⅱ MENU DE PAUSA</h1><div class="menuBtns"><button class="primary" onclick="resumeGame()">▶ Continuar</button><button onclick="restartGame()">↻ Reiniciar partida</button><button onclick="pauseSettings()">⚙ Configurações</button><button onclick="quitToMenu()">⌂ Voltar ao menu</button></div></div></div>
+
+<div id="resultOverlay" class="resultOverlay"><div class="modal panel"><h1 class="title">🏆 RESULTADOS</h1><div class="resultGrid"><div class="resultCol red"><h2>FASE 1 · Desbalanceada</h2><div class="metric">Gargalo <b>J2 · 7s</b></div><div class="metric">WIP <b>Alto</b></div><div class="metric">Fluxo <b>Limitado</b></div></div><div class="resultCol green"><h2>FASE 2 · Balanceada</h2><div class="metric">Gargalo <b>Nenhum</b></div><div class="metric">WIP <b>Baixo</b></div><div class="metric">Fluxo <b>Mais rápido</b></div></div></div><h2 id="resultText" style="text-align:center">JUNTOS, A GENTE CONSEGUE!</h2><div class="navrow"><button onclick="quitToMenu()">⌂ Voltar ao menu</button><button class="primary" onclick="restartGame()">↻ Jogar novamente</button></div></div></div>
+
+<script>
+const $=id=>document.getElementById(id);
+let tutorialPage=1;
+const tutorial=[
+`<h1 class="title">🎯 1. OBJETIVO</h1><p class="subtitle">Os 4 jogadores devem trabalhar juntos para entregar <b>15 hambúrgueres</b> antes que o tempo acabe.</p><div class="metric">⏱ Tempo <b>200 segundos</b></div><div class="metric">🍔 Meta <b>15 hambúrgueres</b></div><div class="metric">🤝 Regra principal <b>A linha só é tão rápida quanto seu gargalo.</b></div>`,
+`<h1 class="title">🏭 2. AS 4 ESTAÇÕES</h1><div class="grid4"><div class="stationCard red"><h3>J1 — Fornecedor</h3><p>Pega pão e carne crua e coloca os ingredientes na esteira.</p></div><div class="stationCard orange"><h3>J2 — Grelhador</h3><p>Pega a carne, coloca na chapa e espera cozinhar sem queimar.</p></div><div class="stationCard green"><h3>J3 — Montador</h3><p>Pega pão e carne cozida, monta o hambúrguer e adiciona o pedido.</p></div><div class="stationCard blue"><h3>J4 — Logística</h3><p>Pega o pedido pronto, entrega ao cliente e cuida dos pratos.</p></div></div>`,
+`<h1 class="title">⚠️ 3. FASE 1 — LINHA DESBALANCEADA</h1><div class="tutorialGrid"><div><div class="metric">J1 <b>2s</b></div><div class="metric danger">J2 — Grelhador <b>5 segundos</b></div><div class="metric">J3 <b>2s</b></div><div class="metric">J4 <b>2s</b></div></div><div class="panel" style="background:#071c2c"><h2>GARGALO DE PRODUÇÃO</h2><p>🥩 A carne se acumula antes do J2.</p><p>⏳ J3 e J4 ficam esperando.</p><p>📉 A equipe perde throughput.</p></div></div>`,
+`<h1 class="title">🚀 4. FASE 2 — VAMOS EQUILIBRAR A LINHA!</h1><p>Ao atingir <b>7 entregas</b>, a equipe desbloqueia a melhoria.</p><div class="tutorialGrid"><div class="panel" style="background:#071c2c"><h2>Chapa industrial</h2><div class="metric">Tempo <b class="good">5 segundos → 2s</b></div></div><div class="panel" style="background:#071c2c"><h2>Esteira automática</h2><div class="metric">Fluxo <b class="good">Mais rápido</b></div></div></div><p class="good">J1 2s → J2 2s → J3 2s → J4 2s</p>`
+];
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));$(id).classList.add('active')}
+function renderTutorial(){ const back=tutorialPage===1 ? "show('menu')" : 'tutorialPage--;renderTutorial()'; const next=tutorialPage===4 ? 'beginGame()' : 'tutorialPage++;renderTutorial()'; $('tPage').textContent=tutorialPage+' / 4'; $('tContent').innerHTML=tutorial[tutorialPage-1]+`<div class="navrow"><button onclick="${back}">← ${tutorialPage===1?'Menu':'Anterior'}</button><button class="${tutorialPage===4?'green':'primary'}" onclick="${next}">${tutorialPage===4?'▶ Começar partida!':'Próximo →'}</button></div>`}
+function startTutorial(){tutorialPage=1;renderTutorial();show('tutorial')}
+function beginGame(){ pmStart(); }
+const S={t:200,served:0,score:0,phase:1,bread:30,raw:30,bb:0,mb:0,queue:0,grill:false,cooked:0,bread3:0,meat3:0,ready:0,ready4:0,dirty:0,grillSec:5,running:true,cookAt:0};
+const players={
+ p1:{x:145,y:320,keys:{up:'w',left:'a',down:'s',right:'d',act:'e'},bounds:{minX:35,maxX:275}},
+ p2:{x:435,y:320,keys:{up:'t',left:'f',down:'g',right:'h',act:'r'},bounds:{minX:315,maxX:555}},
+ p3:{x:725,y:320,keys:{up:'i',left:'j',down:'k',right:'l',act:'u'},bounds:{minX:595,maxX:835}},
+ p4:{x:1015,y:320,keys:{up:'arrowup',left:'arrowleft',down:'arrowdown',right:'arrowright',act:'enter'},bounds:{minX:875,maxX:1135}}
+};
+const pressed={};
+const CODE={
+  p1:{up:'KeyW',left:'KeyA',down:'KeyS',right:'KeyD',act:'KeyE'},
+  p2:{up:'KeyT',left:'KeyF',down:'KeyG',right:'KeyH',act:'KeyR'},
+  p3:{up:'KeyI',left:'KeyJ',down:'KeyK',right:'KeyL',act:'KeyU'},
+  p4:{up:'ArrowUp',left:'ArrowLeft',down:'ArrowDown',right:'ArrowRight',act:'Enter'}
+};
+function setPressed(code,value){ if(code) pressed[code]=value; }
+window.addEventListener('keydown',e=>{
+  setPressed(e.code,true);
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Enter','Space'].includes(e.code)) e.preventDefault();
+  if(e.code==='Escape'&&!e.repeat&&$('game').classList.contains('active')){pauseGame();return}
+  if(!S.running||e.repeat||paused)return;
+  for(const [id,p] of Object.entries(players)){
+    if(e.code===CODE[id].act){action(p);break}
+  }
+});
+window.addEventListener('keyup',e=>setPressed(e.code,false));
+window.addEventListener('blur',()=>{Object.keys(pressed).forEach(k=>pressed[k]=false)});
+
+function holdControl(id,dir,down){
+  const code=CODE[id][dir];
+  setPressed(code,down);
+}
+function bindControlButton(el,id,dir){
+  const down=e=>{e.preventDefault();holdControl(id,dir,true)};
+  const up=e=>{e.preventDefault();holdControl(id,dir,false)};
+  el.addEventListener('pointerdown',down);
+  ['pointerup','pointercancel','pointerleave'].forEach(ev=>el.addEventListener(ev,up));
+}
+function bindActionButton(el,id){
+  el.addEventListener('click',e=>{e.preventDefault();if(S.running&&!paused)action(players[id])});
+}
+function setupTouchControls(){
+  document.querySelectorAll('[data-move]').forEach(el=>{
+    const [id,dir]=el.dataset.move.split(':'); bindControlButton(el,id,dir);
+  });
+  document.querySelectorAll('[data-act]').forEach(el=>bindActionButton(el,el.dataset.act));
+}
+function resetState(){
+  S.running=false;
+
+ Object.assign(S,{t:200,served:0,score:0,phase:1,bread:30,raw:30,bb:0,mb:0,queue:0,grill:false,cooked:0,bread3:0,meat3:0,ready:0,ready4:0,dirty:0,grillSec:5,running:true,cookAt:0});
+ players.p1.x=145;players.p1.y=320;players.p2.x=435;players.p2.y=320;players.p3.x=725;players.p3.y=320;players.p4.x=1015;players.p4.y=320;
+ paused=false;last=performance.now();$('resultOverlay').style.display='none';$('pauseOverlay').style.display='none';logMsg('🍔 Partida iniciada.');draw()
+}
+function restartGame(){resetState();show('game')}
+function pauseGame(){if(!S.running)return;paused=true;$('pauseOverlay').style.display='flex'}
+function resumeGame(){paused=false;last=performance.now();$('pauseOverlay').style.display='none';show('game')}
+function quitToMenu(){paused=false;S.running=false;$('pauseOverlay').style.display='none';$('resultOverlay').style.display='none';show('menu')}
+function logMsg(x){$('log').innerHTML='<div>'+x+'</div>'+$('log').innerHTML}
+function distanceTo(p,x,y){return Math.hypot(p.x-x,p.y-y)}
+function nearest(p){
+ if(p===players.p1){
+   if(distanceTo(p,110,105)<145)return '[E] Pegar pão / carne';
+   if(distanceTo(p,220,320)<120 && (S.bread||S.raw))return '[E] Colocar ingrediente na esteira';
+ }
+ if(p===players.p2){
+   if(distanceTo(p,355,320)<125 && S.mb)return '[R] Pegar carne da esteira';
+   if(distanceTo(p,480,320)<125 && S.queue&&!S.grill)return '[R] Colocar carne na chapa';
+ }
+ if(p===players.p3){
+   if(distanceTo(p,625,320)<125 && S.bb)return '[U] Pegar pão da esteira';
+   if(distanceTo(p,705,320)<125 && S.cooked)return '[U] Pegar carne grelhada';
+   if(distanceTo(p,780,320)<125 && S.bread3&&S.meat3)return '[U] Montar hambúrguer';
+   if(distanceTo(p,825,430)<130 && S.ready)return '[U] Pegar pedido pronto';
+ }
+ if(p===players.p4){
+   if(distanceTo(p,1030,320)<150 && S.ready)return '[Enter] Pegar pedido';
+   if(distanceTo(p,1100,430)<150 && S.ready4)return '[Enter] Entregar ao cliente';
+   if(distanceTo(p,1040,500)<150 && S.dirty)return '[Enter] Lavar prato';
+ }
+ return null
+}
+function action(p){
+ if(p===players.p1){
+   if(distanceTo(p,110,105)<145){
+     if(S.bread<=S.raw){S.bread++;logMsg('🍞 J1 pegou pão.')}else{S.raw++;logMsg('🥩 J1 pegou carne crua.')}
+   }else if(distanceTo(p,220,320)<120){
+     if(S.bread){S.bread--;S.bb++;logMsg('🍞 J1 colocou pão na esteira.')}
+     else if(S.raw){S.raw--;S.mb++;logMsg('🥩 J1 colocou carne crua na esteira.')}
+   }
+ }
+ if(p===players.p2){
+   if(distanceTo(p,355,320)<125&&S.mb){S.mb--;S.queue++;logMsg('🟧 J2 pegou carne da esteira.')}
+   else if(distanceTo(p,480,320)<125&&S.queue&&!S.grill){S.queue--;S.grill=true;S.cookAt=Date.now();logMsg('🔥 J2 colocou carne na chapa.')}
+ }
+ if(p===players.p3){
+   if(distanceTo(p,625,320)<125&&S.bb){S.bb--;S.bread3++;logMsg('🍞 J3 pegou pão.')}
+   else if(distanceTo(p,705,320)<125&&S.cooked){S.cooked--;S.meat3++;logMsg('🍖 J3 pegou carne grelhada.')}
+   else if(distanceTo(p,780,320)<125&&S.bread3&&S.meat3){S.bread3--;S.meat3--;S.ready++;S.score+=10;logMsg('🍔 J3 montou hambúrguer.')}
+   else if(distanceTo(p,825,430)<130&&S.ready){S.ready--;S.ready4++;logMsg('🍔 J3 passou o pedido para J4.')}
+ }
+ if(p===players.p4){
+   if(distanceTo(p,1030,320)<150&&S.ready){S.ready--;S.ready4++;logMsg('📦 J4 pegou pedido pronto.')}
+   else if(distanceTo(p,1100,430)<150&&S.ready4){S.ready4--;S.dirty++;S.served++;S.score+=50;logMsg('✅ Pedido entregue ao cliente.')}
+   else if(distanceTo(p,1040,500)<150&&S.dirty){S.dirty--;logMsg('🧼 J4 lavou o prato.')}
+ }
+ draw()
+}
+function move(now){
+  const dt=Math.min(.05,Math.max(.001,(now-last)/1000));
+  for(const [id,p] of Object.entries(players)){
+    const c=CODE[id], speed=750*dt;
+    let dx=(pressed[c.right]?1:0)-(pressed[c.left]?1:0);
+    let dy=(pressed[c.down]?1:0)-(pressed[c.up]?1:0);
+    if(dx&&dy){dx*=.7071;dy*=.7071}
+    p.x=Math.max(p.bounds.minX,Math.min(p.bounds.maxX,p.x+dx*speed));
+    p.y=Math.max(55,Math.min(570,p.y+dy*speed));
+    $(id).style.left=(p.x-26)+'px';
+    $(id).style.top=(p.y-26)+'px';
+  }
+  last=now;
+}
+function updatePlayerTest(){
+  const status={
+    p1: nearest(players.p1),
+    p2: nearest(players.p2),
+    p3: nearest(players.p3),
+    p4: nearest(players.p4)
+  };
+  for(const id of ['p1','p2','p3','p4']){
+    const el=$(id+'status');
+    if(el){
+      el.textContent=status[id]?'● PRONTO':'● MOVER';
+      el.style.color=status[id]?'#ffd34d':'#8fb3c8';
+    }
+  }
+}
+function draw(){
+updatePlayerTest();
+$('timer').textContent=Math.ceil(S.t);$('served').textContent=S.served;$('score').textContent=S.score;$('phaseLabel').textContent='FASE '+S.phase;$('phaseName').textContent=S.phase===1?'Desbalanceada':'Balanceada';
+$('bread').textContent=S.bread;$('raw').textContent=S.raw;$('bb').textContent=S.bb;$('mb').textContent=S.mb;$('queue').textContent=S.queue;$('grill').textContent=S.grill?1:0;$('cooked').textContent=S.cooked;$('bread3').textContent=S.bread3;$('meat3').textContent=S.meat3;$('ready').textContent=S.ready;$('ready4').textContent=S.ready4;$('dirty').textContent=S.dirty;$('grilltime').textContent=S.grillSec;
+const w=S.bread+S.raw+S.bb+S.mb+S.queue+(S.grill?1:0)+S.cooked+S.bread3+S.meat3+S.ready+S.ready4;$('wip').textContent=w;$('wBread').textContent=S.bread+S.bb+S.bread3;$('wRaw').textContent=S.raw+S.mb+S.queue;$('wCooked').textContent=S.cooked+S.meat3;$('wDirty').textContent=S.dirty;
+const arr=Object.values(players);let found=null;for(const p of arr){const n=nearest(p);if(n){found={p,n};break}}if(found){$('prompt').style.display='block';$('prompt').textContent=found.n;$('prompt').style.left=(found.p.x-35)+'px';$('prompt').style.top=(found.p.y-65)+'px'}else $('prompt').style.display='none';
+if(S.phase===2){$('phaseBox').className='panel phase two';$('phaseBox').innerHTML='✅ FASE 2 — LINHA BALANCEADA<br><span class="small">Todos os postos = 2s</span>'}
+}
+function finish(){S.running=false;$('resultText').textContent=S.served>=15?'🏆 META ATINGIDA! JUNTOS, A GENTE CONSEGUE!':'⏰ Tempo encerrado — a equipe entregou '+S.served+' de 15.';$('resultOverlay').style.display='flex'}
+function loop(now){if(S.running&&!paused&&$('game').classList.contains('active')){const dt=(now-last)/1000;last=now;S.t-=dt;move(now);if(S.grill&&Date.now()-S.cookAt>=S.grillSec*1000){S.grill=false;S.cooked++;logMsg('🍖 Carne cozida pronta.')}if(S.phase===1&&S.served>=7){S.phase=2;S.grillSec=2;S.score+=200;logMsg('🚀 Melhoria: chapa industrial + esteira automática!')}if(S.served>=15||S.t<=0){S.t=Math.max(0,S.t);finish()}draw()}else last=now;requestAnimationFrame(loop)}draw();requestAnimationFrame(loop);
+setTimeout(setupTouchControls,0);
+
+/* ===== V6 REAL PRODUCTION FLOW ===== */
+const PM={
+ t:200,served:0,score:0,phase:1,bread:30,raw:30,bb:0,mb:0,queue:0,grill:false,cooked:0,
+ bread3:0,meat3:0,ready:0,ready4:0,dirty:0,cookAt:0,running:false,paused:false,grillSec:5,
+ lastMsg:'',lastLog:0,lastAction:{p1:0,p2:0,p3:0,p4:0},carry:{p1:null,p2:null,p3:null,p4:null},supplyNext:'bread'
+};
+const PP={
+ p1:{x:120,y:435,up:'KeyW',left:'KeyA',down:'KeyS',right:'KeyD',act:'KeyE',el:'pmP1'},
+ p2:{x:315,y:435,up:'KeyT',left:'KeyF',down:'KeyG',right:'KeyH',act:'KeyR',el:'pmP2'},
+ p3:{x:510,y:435,up:'KeyI',left:'KeyJ',down:'KeyK',right:'KeyL',act:'KeyU',el:'pmP3'},
+ p4:{x:705,y:435,up:'ArrowUp',left:'ArrowLeft',down:'ArrowDown',right:'ArrowRight',act:'Enter',el:'pmP4'}
+};
+const PPressed={}; let pmLast=0; let pmFrame=0;
+const PM_ZONE={
+ p1:{supply:[115,115,150],belt:[205,255,125]},
+ p2:{belt:[315,255,125],grill:[315,115,125]},
+ p3:{belt:[510,255,125],assembly:[510,115,145],handoff:[600,330,145]},
+ p4:{pickup:[705,115,155],delivery:[770,330,155],sink:[705,380,150]}
+};
+function pmReset(){
+ Object.assign(PM,{t:200,served:0,score:0,phase:1,bread:30,raw:30,bb:0,mb:0,queue:0,grill:false,cooked:0,bread3:0,meat3:0,ready:0,ready4:0,dirty:0,cookAt:0,running:true,paused:false,grillSec:5,lastMsg:'',lastLog:0,lastAction:{p1:0,p2:0,p3:0,p4:0},carry:{p1:null,p2:null,p3:null,p4:null},supplyNext:'bread'});
+ Object.assign(PP.p1,{x:120,y:435});Object.assign(PP.p2,{x:315,y:435});Object.assign(PP.p3,{x:510,y:435});Object.assign(PP.p4,{x:705,y:435});
+ Object.keys(PPressed).forEach(k=>delete PPressed[k]);
+ document.getElementById('pmEndOverlay').classList.remove('show');document.getElementById('pmPauseOverlay').classList.remove('show');
+ pmSay('J1: proveedor listo — hay 30 panes y 30 carnes. Acércate y pulsa E.');
+ pmLog('🚦 Línea preparada: almacén con 30 panes y 30 carnes. Objetivo: 15 hamburguesas en 200 s.');
+ pmDraw();
+}
+function pmStart(){
+ document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));
+ document.getElementById('playMatch').classList.add('active');
+ pmReset();if(MP.online&&MP.connected)mpSend({type:'start'});pmLast=performance.now();cancelAnimationFrame(pmFrame);pmFrame=requestAnimationFrame(pmLoop);
+}
+function pmExit(){PM.running=false;cancelAnimationFrame(pmFrame);document.getElementById('playMatch').classList.remove('active');const m=document.getElementById('menu');if(m)m.classList.add('active')}
+function pmRestart(){pmReset();pmLast=performance.now();cancelAnimationFrame(pmFrame);pmFrame=requestAnimationFrame(pmLoop)}
+function pmPause(){if(!PM.running)return;PM.paused=!PM.paused;document.getElementById('pmPauseOverlay').classList.toggle('show',PM.paused);pmLast=performance.now();pmSay(PM.paused?'⏸ Partida pausada':'▶ Partida reanudada')}
+function pmDist(p,x,y){return Math.hypot(p.x-x,p.y-y)}
+function pmNear(p,zone){return pmDist(p,zone[0],zone[1])<=zone[2]}
+function pmSay(t){PM.lastMsg=t;const e=document.getElementById('pmPrompt');if(e)e.textContent=t}
+function pmLog(t){const panel=document.getElementById('pmLog');if(!panel)return;const row=document.createElement('div');row.textContent=t;panel.prepend(row);while(panel.children.length>7)panel.lastElementChild.remove()}
+function pmAction(id){
+ if(!PM.running||PM.paused)return;
+ const now=performance.now();
+ if(now-(PM.lastAction[id]||0)<220)return;
+ PM.lastAction[id]=now;
+ const p=PP[id], z=PM_ZONE[id], c=PM.carry[id];
+ if(id==='p1'){
+   if(pmNear(p,z.supply)){
+     if(c)pmSay('J1 já está levando '+(c==='bread'?'pão 🍞':'carne crua 🥩')+'.');
+     else if(PM.supplyNext==='bread'&&PM.bread>0){PM.bread--;PM.carry.p1='bread';PM.supplyNext='raw';pmSay('J1 pegou pão 🍞');pmLog('J1 → pegou pão no estoque.');}
+     else if(PM.raw>0){PM.raw--;PM.carry.p1='raw';PM.supplyNext='bread';pmSay('J1 pegou carne crua 🥩');pmLog('J1 → pegou carne crua no estoque.');}
+     else if(PM.bread>0){PM.bread--;PM.carry.p1='bread';PM.supplyNext='raw';pmSay('J1 pegou pão 🍞');pmLog('J1 → pegou pão no estoque.');}
+     else pmSay('J1: estoque esgotado.');
+   } else if(pmNear(p,z.belt)){
+     if(c==='bread'){PM.bb++;PM.carry.p1=null;pmSay('🍞 Pão colocado na esteira.');pmLog('🍞 J1 → pão entrou na esteira.');}
+     else if(c==='raw'){PM.mb++;PM.carry.p1=null;pmSay('🥩 Carne crua colocada na esteira.');pmLog('🥩 J1 → carne crua entrou na esteira.');}
+     else pmSay('J1: pegue um ingrediente no estoque primeiro.');
+   } else pmSay('J1: aproxime-se do estoque ou da esteira.');
+ } else if(id==='p2'){
+   if(pmNear(p,z.belt)&&PM.mb>0&&!c){PM.mb--;PM.queue++;PM.carry.p2='raw';pmSay('🥩 J2 pegou carne da esteira.');pmLog('🥩 J2 → carne retirada da esteira.');}
+   else if(pmNear(p,z.grill)&&c==='raw'&&!PM.grill){PM.carry.p2=null;PM.queue=Math.max(0,PM.queue-1);PM.grill=true;PM.cookAt=performance.now();pmSay('🔥 Carne na chapa: '+PM.grillSec+' s');pmLog('🔥 J2 → cozimento iniciado ('+PM.grillSec+' s).');}
+   else if(pmNear(p,z.grill)&&PM.grill)pmSay('🔥 A chapa está ocupada.');
+   else if(pmNear(p,z.grill)&&!PM.grill&&PM.cooked>0&&!c){PM.cooked--;PM.carry.p2='cooked';pmSay('🍖 J2 pegou carne cozida.');pmLog('🍖 J2 → carne cozida retirada da chapa; leve-a de volta à esteira para J3.');}
+   else if(pmNear(p,z.belt)&&c==='cooked'){PM.cooked++;PM.carry.p2=null;pmSay('🍖 Carne cozida colocada na esteira.');pmLog('🍖 J2 → carne cozida entrou na esteira para J3.');}
+   else if(pmNear(p,z.belt)&&c==='raw')pmSay('J2: leve a carne até a chapa.');
+   else if(pmNear(p,z.belt))pmSay('J2: não há carne crua na esteira.');
+   else pmSay('J2: vá até a esteira ou a chapa.');
+ } else if(id==='p3'){
+   if(pmNear(p,z.belt)&&!c){
+     if(PM.bb>0){PM.bb--;PM.carry.p3='bread';pmSay('🍞 J3 pegou pão da esteira.');pmLog('🍞 J3 → pão retirado da esteira.');}
+     else if(PM.cooked>0){PM.cooked--;PM.carry.p3='cooked';pmSay('🍖 J3 pegou carne cozida.');pmLog('🍖 J3 → carne cozida retirada da linha.');}
+     else pmSay('J3: ainda não há ingrediente disponível.');
+   } else if(pmNear(p,z.assembly)){
+     if(c==='bread'&&PM.meat3>0){PM.meat3--;PM.ready++;PM.carry.p3=null;PM.score+=10;pmSay('🍔 Hambúrguer montado!');pmLog('🍔 J3 → hambúrguer montado.');}
+     else if(c==='cooked'&&PM.bread3>0){PM.bread3--;PM.ready++;PM.carry.p3=null;PM.score+=10;pmSay('🍔 Hambúrguer montado!');pmLog('🍔 J3 → hambúrguer montado.');}
+     else if(c==='bread'){PM.bread3++;PM.carry.p3=null;pmSay('🍞 Pão pronto na bancada.');pmLog('🍞 J3 → pão aguardando carne.');}
+     else if(c==='cooked'){PM.meat3++;PM.carry.p3=null;pmSay('🍖 Carne pronta na bancada.');pmLog('🍖 J3 → carne aguardando pão.');}
+     else pmSay('J3 precisa juntar pão + carne cozida.');
+   } else if(pmNear(p,z.handoff)&&PM.ready>0&&!c){PM.ready--;PM.ready4++;pmSay('📦 Pedido pronto passou para J4.');pmLog('📦 J3 → pedido pronto entregue à logística.');}
+   else if(pmNear(p,z.belt)&&c)pmSay('J3: leve o ingrediente até a bancada.');
+   else pmSay('J3: esteira, bancada ou saída de pedidos.');
+ } else if(id==='p4'){
+   if(pmNear(p,z.pickup)&&!c&&PM.ready4>0){PM.ready4--;PM.carry.p4='burger';pmSay('📦 J4 pegou o pedido.');pmLog('📦 J4 → pedido retirado da saída.');}
+   else if(pmNear(p,z.pickup)&&!c&&PM.ready>0){PM.ready--;PM.carry.p4='burger';pmSay('📦 J4 pegou um pedido da fila.');pmLog('📦 J4 → pedido retirado da fila.');}
+   else if(pmNear(p,z.delivery)&&c==='burger'){PM.carry.p4=null;PM.dirty++;PM.served++;PM.score+=50;pmSay('✅ Pedido entregue! '+PM.served+'/15');pmLog('✅ J4 → pedido '+PM.served+'/15 entregue ao cliente.');pmCheckPhase();}
+   else if(pmNear(p,z.sink)&&PM.dirty>0){PM.dirty--;pmSay('🧼 Prato lavado.');pmLog('🧼 J4 → prato devolvido à lavagem.');}
+   else if(pmNear(p,z.pickup)&&!c)pmSay('J4: nenhum pedido pronto para retirar.');
+   else if(pmNear(p,z.delivery)&&!c)pmSay('J4: pegue um pedido antes de ir ao cliente.');
+   else if(pmNear(p,z.sink))pmSay('J4: não há prato sujo agora.');
+   else pmSay('J4: saída → cliente → lavagem.');
+ }
+ pmDraw();
+}
+function pmCheckPhase(){
+ if(PM.phase===1&&PM.served>=7){PM.phase=2;PM.grillSec=2;pmSay('🚀 FASE 2: línea balanceada. ¡Plancha industrial a 2 s!');pmLog('🚀 MEJORA DESBLOQUEADA: J2 cocina en 2 s.');}
+}
+function pmDraw(){
+ const meter=document.getElementById('pmLineMeter');if(meter)meter.style.width=Math.min(100,(PM.served/15)*100)+'%';
+ const vals=[['pmTime',Math.max(0,Math.ceil(PM.t))],['pmServed',PM.served],['pmScore',PM.score],['pmPhase',PM.phase],['pmBread',PM.bread],['pmRaw',PM.raw],['pmCooking',PM.grill?1:0],['pmCooked',PM.cooked],['pmReady',PM.ready]];
+ vals.forEach(([id,v])=>{const e=document.getElementById(id);if(e)e.textContent=v});
+ const carried=Object.values(PM.carry).filter(Boolean).length; const wip=PM.bread+PM.raw+PM.bb+PM.mb+PM.queue+(PM.grill?1:0)+PM.cooked+PM.bread3+PM.meat3+PM.ready+PM.ready4+PM.dirty+carried;
+ const w=document.getElementById('pmWip');if(w)w.textContent=wip;
+ const g=document.getElementById('pmGrill');if(g)g.textContent=PM.grill?'🔥 Cocinando ('+PM.grillSec+' s)':'Chapa libre';
+ const phase=document.getElementById('pmPhaseName');if(phase)phase.textContent=PM.phase===1?'Desbalanceada':'Balanceada';
+ Object.entries(PP).forEach(([id,p])=>{const e=document.getElementById(p.el);if(e){e.style.left=(p.x-26)+'px';e.style.top=(p.y-26)+'px';e.classList.toggle('carrying',!!PM.carry[id]);}});
+ const flow=document.getElementById('pmFlowState');if(flow)flow.textContent='🍞 '+PM.bb+'  →  🥩 '+(PM.mb+PM.queue+(PM.grill?1:0))+'  →  🍖 '+PM.cooked+'  →  🍔 '+(PM.ready+PM.ready4); const carry=document.getElementById('pmCarry');if(carry)carry.textContent=Object.entries(PM.carry).filter(([k,v])=>v).map(([k,v])=>k.toUpperCase()+': '+(v==='bread'?'🍞':v==='raw'?'🥩':v==='cooked'?'🍖':'🍔')).join(' · ')||'Ningún jugador lleva producto'; const bar=document.getElementById('pmCookBar');if(bar){let pct=PM.grill?Math.min(100,Math.max(0,((performance.now()-PM.cookAt)/1000)/PM.grillSec*100)):0;bar.style.width=pct+'%';}
+}
+
+function pmAutoLine(dt){
+  if(PM.phase<2)return;
+  PM._beltClock=(PM._beltClock||0)+dt;
+  if(PM.mb>0 && PM._beltClock>=0.45){PM._beltClock=0;/* phase 2 represents a faster belt; meat remains available to J2 */}
+}
+
+/* ===== MULTIPLAYER V1 ===== */
+const MP={ws:null,connected:false,role:null,host:false,room:'',name:'',players:{},lastSend:0,lastSnap:0,online:false};
+function mpOpenLobby(){document.getElementById('mpLobby').style.display='flex';document.getElementById('mpStatus').textContent='';}
+function mpCloseLobby(){document.getElementById('mpLobby').style.display='none';}
+function mpStatus(t){const e=document.getElementById('mpStatus');if(e)e.textContent=t;}
+function mpRoster(){const e=document.getElementById('mpRoster');if(!e)return;const a=Object.values(MP.players);e.innerHTML=a.length?'Jugadores: '+a.map(x=>'<b>'+x.role.toUpperCase()+'</b> '+(x.name||'Jugador')).join(' · '):'';}
+function mpConnect(mode){
+ const url=document.getElementById('mpServer').value.trim(), room=(document.getElementById('mpRoom').value.trim()||'COCINA1').toUpperCase(), name=(document.getElementById('mpName').value.trim()||'Jugador');
+ if(!url){mpStatus('Escribe la dirección del servidor.');return}
+ try{MP.ws=new WebSocket(url)}catch(e){mpStatus('No se pudo abrir WebSocket.');return}
+ MP.room=room;MP.name=name;MP.online=true;mpStatus('Conectando…');
+ MP.ws.onopen=()=>{MP.ws.send(JSON.stringify({type:'join',room,name,mode}));mpStatus('Conectado. Esperando jugadores…')};
+ MP.ws.onmessage=e=>{let m;try{m=JSON.parse(e.data)}catch(_){return}mpHandle(m)};
+ MP.ws.onclose=()=>{MP.connected=false;MP.online=false;mpStatus('Servidor desconectado. Puedes seguir jugando localmente.');};
+ MP.ws.onerror=()=>mpStatus('No se pudo conectar al servidor.');
+}
+function mpSend(m){if(MP.ws&&MP.ws.readyState===1)MP.ws.send(JSON.stringify(m));}
+function mpHandle(m){
+ if(m.type==='welcome'){MP.connected=true;MP.role=m.role;MP.host=!!m.host;MP.players=m.players||{};mpRoster();mpStatus('Asignado a '+MP.role.toUpperCase()+'. ¡Listo!');setTimeout(()=>{mpCloseLobby();pmStart();},500);return}
+ if(m.type==='roster'){MP.players=m.players||{};mpRoster();return}
+ if(m.type==='position'){if(m.player&&PP[m.player]&&m.player!==MP.role){PP[m.player].x=m.x;PP[m.player].y=m.y}return}
+ if(m.type==='action'){if(m.player&&m.player!==MP.role){pmAction(m.player)} else if(m.player===MP.role&&m.relay)pmAction(m.player);return}
+ if(m.type==='snapshot'&&m.host){if(!MP.host){pmApplySnapshot(m.state)}return}
+ if(m.type==='start'){if(!PM.running)pmStart();return}
+}
+function pmSnapshot(){return {t:PM.t,served:PM.served,score:PM.score,phase:PM.phase,bread:PM.bread,raw:PM.raw,bb:PM.bb,mb:PM.mb,queue:PM.queue,grill:PM.grill,cooked:PM.cooked,bread3:PM.bread3,meat3:PM.meat3,ready:PM.ready,ready4:PM.ready4,dirty:PM.dirty,cookAt:PM.cookAt,grillSec:PM.grillSec,carry:PM.carry,supplyNext:PM.supplyNext,running:PM.running,paused:PM.paused};}
+function pmApplySnapshot(st){if(!st)return;Object.assign(PM,st);pmDraw();}
+function mpBroadcastSnapshot(){if(MP.online&&MP.host&&MP.connected)mpSend({type:'snapshot',host:true,state:pmSnapshot()});}
+function mpLocalAction(id){if(!MP.online||!MP.connected){pmAction(id);return}mpSend({type:'action',player:id});pmAction(id);}
+
+function pmLoop(now){
+ if(!PM.running)return;
+ const dt=Math.min(.05,Math.max(.001,(now-pmLast)/1000));pmLast=now;
+ if(!PM.paused){
+   PM.t-=dt;
+   pmAutoLine(dt);
+   Object.entries(PP).forEach(([id,p])=>{
+     if(MP.online&&MP.connected&&id!==MP.role)return;
+     const speed=750*dt;let dx=(PPressed[p.right]?1:0)-(PPressed[p.left]?1:0),dy=(PPressed[p.down]?1:0)-(PPressed[p.up]?1:0);
+     if(dx&&dy){dx*=.7071;dy*=.7071} p.x=Math.max(30,Math.min(790,p.x+dx*speed));p.y=Math.max(80,Math.min(585,p.y+dy*speed));
+   });
+   if(MP.online&&MP.connected&&MP.role){if(now-MP.lastSend>66){const p=PP[MP.role];mpSend({type:'position',player:MP.role,x:p.x,y:p.y});MP.lastSend=now;}if(MP.host&&now-MP.lastSnap>250){mpBroadcastSnapshot();MP.lastSnap=now;}}
+   if(PM.grill&&(performance.now()-PM.cookAt)/1000>=PM.grillSec){PM.grill=false;PM.cooked++;pmSay('🍖 ¡Carne cocida! J2 puede pasarla a J3.');pmLog('🍖 J2 → carne cocida disponible.');}
+   if(PM.served>=15){pmFinish(true);return}
+   if(PM.t<=0){PM.t=0;pmFinish(false);return}
+   pmDraw();
+ }
+ pmFrame=requestAnimationFrame(pmLoop);
+}
+function pmFinish(win){
+ PM.running=false;cancelAnimationFrame(pmFrame);document.getElementById('pmEndOverlay').classList.add('show');
+ document.getElementById('pmEndTitle').textContent=win?'🏆 ¡PARTIDA GANADA!':'⏱️ TIEMPO TERMINADO';
+ document.getElementById('pmEndText').textContent='Entregaron '+PM.served+' de 15 hamburguesas · Puntuación: '+PM.score;
+}
+function pmHold(id,dir){if(PM.running&&!PM.paused)PPressed[PP[id][dir]]=true}
+function pmRelease(id,dir){PPressed[PP[id][dir]]=false}
+window.addEventListener('keydown',e=>{
+ if(!document.getElementById('playMatch')?.classList.contains('active'))return;
+ PPressed[e.code]=true;
+ if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Enter'].includes(e.code))e.preventDefault();
+ if(PM.running&&!PM.paused&&!e.repeat){for(const [id,p] of Object.entries(PP))if(e.code===p.act&&(!MP.online||id===MP.role)){mpLocalAction(id);break}}
+});
+window.addEventListener('keyup',e=>PPressed[e.code]=false);
+window.addEventListener('blur',()=>Object.keys(PPressed).forEach(k=>PPressed[k]=false));
+
+</script>
+
+<div id="mpLobby" style="position:fixed;inset:0;z-index:12000;display:none;background:linear-gradient(180deg,#071b2c,#04111e);color:#eefaff;font-family:Arial,sans-serif;align-items:center;justify-content:center;padding:20px">
+  <div style="width:min(620px,94vw);background:#0b2942;border:2px solid #167eb6;border-radius:20px;padding:22px;box-shadow:0 18px 50px #0008">
+    <h1 style="margin:0 0 8px">👥 Over-Capacity — Multijugador</h1>
+    <p style="color:#b8d7e8">Crea una sala o entra en una existente. Cada jugador recibe una estación J1–J4.</p>
+    <label style="display:block;margin:12px 0 5px">Servidor WebSocket</label>
+    <input id="mpServer" value="ws://localhost:8080" style="width:100%;box-sizing:border-box;padding:11px;border-radius:10px;border:1px solid #286d91;background:#061725;color:white">
+    <label style="display:block;margin:12px 0 5px">Sala</label>
+    <input id="mpRoom" value="COCINA1" maxlength="16" style="width:100%;box-sizing:border-box;padding:11px;border-radius:10px;border:1px solid #286d91;background:#061725;color:white;text-transform:uppercase">
+    <label style="display:block;margin:12px 0 5px">Nombre</label>
+    <input id="mpName" value="Jugador" maxlength="18" style="width:100%;box-sizing:border-box;padding:11px;border-radius:10px;border:1px solid #286d91;background:#061725;color:white">
+    <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
+      <button onclick="mpConnect('create')" style="flex:1;padding:12px;border:0;border-radius:10px;background:#1c9d64;color:white;font-weight:800">🏠 Crear sala</button>
+      <button onclick="mpConnect('join')" style="flex:1;padding:12px;border:0;border-radius:10px;background:#167eb6;color:white;font-weight:800">🚪 Entrar a sala</button>
+      <button onclick="mpCloseLobby()" style="width:100%;padding:10px;border:1px solid #3b6680;border-radius:10px;background:#0a2032;color:#d9effa">Volver</button>
+    </div>
+    <div id="mpStatus" style="margin-top:14px;color:#ffd34d;min-height:22px"></div>
+    <div id="mpRoster" style="margin-top:8px;color:#b8d7e8"></div>
+  </div>
+</div>
+
+<div id="playMatch" aria-label="Partida jugable">
+  <div class="pmTop">
+    <div class="pmLogo"><span>🍔</span> OVER-<b>CAPACITY</b></div><button onclick="mpOpenLobby()" style="padding:8px 12px;border-radius:10px;border:1px solid #39a6df;background:#0b3550;color:white;font-weight:800">👥 Multijugador</button>
+    <div class="pmStat">🎯 <small>Meta</small> <span id="pmServed">0</span>/15</div>
+    <div class="pmStat timerStat">⏱️ <span id="pmTime">200</span>s</div>
+    <div class="pmStat">⭐ <span id="pmScore">0</span></div>
+    <div class="pmStat phaseStat">FASE <span id="pmPhase">1</span> · <span id="pmPhaseName">Desbalanceada</span></div>
+    <button type="button" onclick="pmPause()">⏸ Pausa</button>
+    <button type="button" onclick="pmExit()">☰ Menú</button>
+  </div>
+  <div class="pmMain">
+    <div class="pmBoard" id="pmBoard">
+      <div class="pmWall topWall"></div>
+      <div class="pmWall leftWall"></div><div class="pmWall rightWall"></div>
+      <div class="pmFloorSign">COCINA · LÍNEA DE PRODUCCIÓN</div>
+      <div class="pmPlant plant1">🌿</div><div class="pmPlant plant2">🌿</div><div class="pmPlant plant3">🌿</div>
+      <div class="pmStation j1">
+        <div class="stationHead redHead"><span class="stationNumber">1</span><span>PROVEEDOR</span><em>J1</em></div>
+        <div class="machine supplyMachine"><div class="crate">🍞</div><div class="crate">🥩</div></div>
+        <div class="stationCaption">PÃO + CARNE CRUA</div><small>WASD + E</small>
+      </div>
+      <div class="pmStation j2">
+        <div class="stationHead orangeHead"><span class="stationNumber">2</span><span>GRELHADOR</span><em>J2</em></div>
+        <div class="machine grillMachine"><div class="grillTop">🔥</div><div class="grillSlots"><i></i><i></i><i></i></div></div>
+        <div class="stationCaption">COZINHA <b id="pmGrill">5 s</b></div>
+        <div class="pmCookTrack"><div id="pmCookBar" class="pmCookBar"></div></div><small>TFGH + R</small>
+      </div>
+      <div class="pmStation j3">
+        <div class="stationHead greenHead"><span class="stationNumber">3</span><span>MONTADOR</span><em>J3</em></div>
+        <div class="machine assemblyMachine"><span>🍞</span><b>＋</b><span>🍖</span><strong>🍔</strong></div>
+        <div class="stationCaption">MESA DE MONTAGEM</div><small>IJKL + U</small>
+      </div>
+      <div class="pmStation j4">
+        <div class="stationHead blueHead"><span class="stationNumber">4</span><span>LOGÍSTICA</span><em>J4</em></div>
+        <div class="machine deliveryMachine"><div>🍔</div><div>➡️</div><div>👥</div></div>
+        <div class="stationCaption">ENTREGA + PRATOS</div><small>↑↓←→ + Enter</small>
+      </div>
+
+      <div class="pmConveyor pmC1"><div class="beltArrows">» » » » » »</div></div>
+      <div class="pmConveyor pmC2"><div class="beltArrows">» » » » » »</div></div>
+      <div class="pmConveyor pmC3"><div class="beltArrows">» » » » » »</div></div>
+      <div class="pmBeltLabel label1">INGREDIENTES</div><div class="pmBeltLabel label2">COCCIÓN</div><div class="pmBeltLabel label3">PEDIDOS</div>
+
+      <div class="pmCounter counter1"><span>🍽️</span> Bandejas</div>
+      <div class="pmCounter counter2"><span>🧴</span> Molhos</div>
+      <div class="pmCounter counter3"><span>🧼</span> Lavagem</div>
+      <div class="pmDining"><div class="customer c1">🧑‍🤝‍🧑<span>🍔</span></div><div class="customer c2">👩‍🦰<span>🍔</span></div><div class="customer c3">👨‍🦱<span>🍔</span></div><div class="customer c4">👩‍🦳<span>🍔</span></div></div>
+      <div class="pmServingLine"></div>
+
+      <div class="pmObj oBread">🍞</div><div class="pmObj oRaw">🥩</div><div class="pmObj oCook">🍖</div><div class="pmObj oBurger">🍔</div>
+      <div class="pmPlayer p1" id="pmP1"><span>J1</span></div><div class="pmPlayer p2" id="pmP2"><span>J2</span></div><div class="pmPlayer p3" id="pmP3"><span>J3</span></div><div class="pmPlayer p4" id="pmP4"><span>J4</span></div>
+      <div class="pmPrompt" id="pmPrompt">J1: aproxímate a tu estación y pulsa E</div>
+    </div>
+    <div class="pmPanel">
+      <div class="panelTitle"><span>🏭</span> LÍNEA</div>
+      <div class="lineMeter"><span style="width:0%" id="pmLineMeter"></span></div>
+      <div class="miniStats"><div>🍞<b id="pmBread">0</b><small>Pan</small></div><div>🥩<b id="pmRaw">0</b><small>Cruda</small></div><div>🔥<b id="pmCooking">0</b><small>Chapa</small></div><div>🍖<b id="pmCooked">0</b><small>Cocida</small></div><div>🍔<b id="pmReady">0</b><small>Listos</small></div></div>
+      <div class="panelCard"><span>📦 WIP</span><b id="pmWip">0</b></div>
+      <div class="panelCard"><span>👐 En manos</span><b id="pmCarry">Ningún jugador</b></div>
+      <div id="pmFlowState" class="flowState">🍞 0 → 🥩 0 → 🍖 0 → 🍔 0</div>
+      <div id="pmLog" class="pmHelp pmLog"></div>
+      <div class="panelTitle controlsTitle"><span>🎮</span> CONTROLES</div>
+      <div class="pmHelp"><b>J1</b> WASD + E · Proveedor<br><b>J2</b> TFGH + R · Grelhador<br><b>J3</b> IJKL + U · Montador<br><b>J4</b> Flechas + Enter · Logística</div>
+      <div class="speedBadge">⚡ 750 px/s · ⏱️ 3:20 · 🔥 5 s → 2 s</div><div id="j4RouteHint" class="pmHelp" style="border-left:4px solid #1687ff;margin-top:8px"><b>J2:</b> depois de cozinhar, volte à esteira e pressione R para liberar a carne para J3. &nbsp; <b>J4:</b> pedido → cliente → lavagem.</div>
+      <div class="pmControls">
+        <button onpointerdown="pmHold('p1','up')" onpointerup="pmRelease('p1','up')" onpointercancel="pmRelease('p1','up')">J1 W</button><button onpointerdown="pmHold('p1','left')" onpointerup="pmRelease('p1','left')" onpointercancel="pmRelease('p1','left')">J1 A</button><button onpointerdown="pmHold('p1','down')" onpointerup="pmRelease('p1','down')" onpointercancel="pmRelease('p1','down')">J1 S</button><button onpointerdown="pmHold('p1','right')" onpointerup="pmRelease('p1','right')" onpointercancel="pmRelease('p1','right')">J1 D</button><button onclick="pmAction('p1')">J1 E</button>
+        <button onpointerdown="pmHold('p2','up')" onpointerup="pmRelease('p2','up')" onpointercancel="pmRelease('p2','up')">J2 T</button><button onpointerdown="pmHold('p2','left')" onpointerup="pmRelease('p2','left')" onpointercancel="pmRelease('p2','left')">J2 F</button><button onpointerdown="pmHold('p2','down')" onpointerup="pmRelease('p2','down')" onpointercancel="pmRelease('p2','down')">J2 G</button><button onpointerdown="pmHold('p2','right')" onpointerup="pmRelease('p2','right')" onpointercancel="pmRelease('p2','right')">J2 H</button><button onclick="pmAction('p2')">J2 R</button>
+        <button onpointerdown="pmHold('p3','up')" onpointerup="pmRelease('p3','up')" onpointercancel="pmRelease('p3','up')">J3 I</button><button onpointerdown="pmHold('p3','left')" onpointerup="pmRelease('p3','left')" onpointercancel="pmRelease('p3','left')">J3 J</button><button onpointerdown="pmHold('p3','down')" onpointerup="pmRelease('p3','down')" onpointercancel="pmRelease('p3','down')">J3 K</button><button onpointerdown="pmHold('p3','right')" onpointerup="pmRelease('p3','right')" onpointercancel="pmRelease('p3','right')">J3 L</button><button onclick="pmAction('p3')">J3 U</button>
+        <button onpointerdown="pmHold('p4','up')" onpointerup="pmRelease('p4','up')" onpointercancel="pmRelease('p4','up')">J4 ↑</button><button onpointerdown="pmHold('p4','left')" onpointerup="pmRelease('p4','left')" onpointercancel="pmRelease('p4','left')">J4 ←</button><button onpointerdown="pmHold('p4','down')" onpointerup="pmRelease('p4','down')" onpointercancel="pmRelease('p4','down')">J4 ↓</button><button onpointerdown="pmHold('p4','right')" onpointerup="pmRelease('p4','right')" onpointercancel="pmRelease('p4','right')">J4 →</button><button onclick="pmAction('p4')">J4 Enter</button>
+      </div>
+    </div>
+  </div>
+  <div id="pmPauseOverlay" class="pmOverlay"><div class="pmCard"><h2>⏸ PARTIDA PAUSADA</h2><button onclick="pmPause()">Continuar</button><button onclick="pmRestart()">Reiniciar</button><button onclick="pmExit()">Menú</button></div></div>
+  <div id="pmEndOverlay" class="pmOverlay"><div class="pmCard"><h2 id="pmEndTitle">FIN</h2><p id="pmEndText"></p><button onclick="pmRestart()">Jugar de nuevo</button><button onclick="pmExit()">Volver al menú</button></div></div>
+</div>
+<div id="flowFeedback" class="flow-feedback"></div>
+
+<script id="production-flow-v1-js">
+(function(){
+  window.ocFlow = {
+    timer:null,
+    show:function(message){
+      var el=document.getElementById('flowFeedback');
+      if(!el) return;
+      el.textContent=message;
+      el.classList.add('show');
+      clearTimeout(this.timer);
+      this.timer=setTimeout(function(){el.classList.remove('show')},900);
+    },
+    pulse:function(selector){
+      var el=document.querySelector(selector);
+      if(!el) return;
+      el.classList.remove('station-flow-active');
+      void el.offsetWidth;
+      el.classList.add('station-flow-active');
+    }
+  };
+})();
+</script>
+
+<div id="ocProductionPanel">
+  <h3>🏭 Linha de produção</h3>
+  <div class="oc-flow-row">
+    <span id="ocN1" class="oc-node ready">J1</span><span class="oc-arrow">→</span>
+    <span id="ocN2" class="oc-node">J2</span><span class="oc-arrow">→</span>
+    <span id="ocN3" class="oc-node">J3</span><span class="oc-arrow">→</span>
+    <span id="ocN4" class="oc-node">J4</span>
+  </div>
+  <div id="ocFlowText">Aguardando ingredientes…</div><div style="margin-top:6px;font-size:12px;opacity:.85">🔥 Cozimento: 5 segundos</div>
+</div>
+<div id="ocItemBread" class="oc-item bread">🍞</div>
+<div id="ocItemRaw" class="oc-item raw">🥩</div>
+<div id="ocItemCooked" class="oc-item cooked">🍖</div>
+<div id="ocItemBurger" class="oc-item burger">🍔</div>
+<div id="ocItemPlate" class="oc-item plate">🍽</div>
+
+<script id="production-system-v2-js">
+(function(){
+  const S={step:0,t:null,items:['ocItemBread','ocItemRaw','ocItemCooked','ocItemBurger','ocItemPlate']};
+  const messages=[
+    'J1 abastecendo pão e carne…',
+    'Carne aguardando na cinta para J2…',
+    'J2 grelhando a carne…',
+    'J3 montando a hamburgueria…',
+    'J4 levando o pedido ao cliente…',
+    'Pedido entregue! Próximo pedido…'
+  ];
+  function text(m){const e=document.getElementById('ocFlowText');if(e)e.textContent=m}
+  function nodes(a){
+    document.querySelectorAll('#ocProductionPanel .oc-node').forEach(x=>x.className='oc-node');
+    const e=document.getElementById('ocN'+a);if(e)e.classList.add(a===2?'busy':'ready');
+  }
+  function show(id,x,y,cls){
+    const e=document.getElementById(id);if(!e)return;
+    e.className='oc-item visible '+cls;e.style.left=x+'px';e.style.top=y+'px';
+  }
+  function hideAll(){S.items.forEach(id=>{const e=document.getElementById(id);if(e)e.classList.remove('visible')})}
+  function run(){
+    if(!document.getElementById('ocProductionPanel'))return;
+    hideAll();
+    S.step=(S.step+1)%6;
+    const w=window.innerWidth,h=window.innerHeight;
+    const y=Math.min(h-170,Math.max(150,h*.48));
+    if(S.step===0){text(messages[0]);nodes(1);show('ocItemBread',w*.16,y,'bread');}
+    if(S.step===1){text(messages[1]);nodes(2);show('ocItemRaw',w*.34,y,'raw');}
+    if(S.step===2){text(messages[2]);nodes(2);show('ocItemCooked',w*.50,y,'cooked');}
+    if(S.step===3){text(messages[3]);nodes(3);show('ocItemBurger',w*.65,y,'burger');}
+    if(S.step===4){text(messages[4]);nodes(4);show('ocItemPlate',w*.79,y,'plate');}
+    if(S.step===5){text(messages[5]);nodes(4);}
+    S.t=setTimeout(run,1100);
+  }
+  window.addEventListener('load',function(){setTimeout(run,800)});
+})();
+</script>
+</body>
+</html>
